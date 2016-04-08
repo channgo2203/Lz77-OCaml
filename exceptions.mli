@@ -1,5 +1,5 @@
 (* end of file *)
-exception Eof
+exception End_of_stream
 
 (* mal file extension *)
-exception Ext
+exception Invalid_file_ext

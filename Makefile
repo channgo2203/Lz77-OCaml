@@ -7,7 +7,8 @@
 
 OCAMLMAKEFILE = OCamlMakefile
 
-SOURCES = exceptions.ml exceptions.mli \
+SOURCES = errors.ml errors.mli \
+		  exceptions.ml exceptions.mli \
           charstream.ml charstream.mli \
           lz77.ml lz77.mli \
           main.ml 

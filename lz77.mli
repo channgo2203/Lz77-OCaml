@@ -11,11 +11,11 @@ val compress_filename : string -> string
  * 0: succeeded
  * 1: failed
  *)
-val compress : in_channel -> bool
+val compress : string -> bool
 
 (* uncompress function 
  * 0: succeeded
  * 1: failed
  *)
-val uncompress : in_channel -> bool
+val uncompress : string -> bool
 

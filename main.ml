@@ -2,12 +2,10 @@
  * in OCaml
  *)
 
+open Errors
 open Printf
 open Exceptions
 open Lz77
-
-(* debug flag *)
-let debug = ref false
 
 (* text file *)
 let text_file = ref ""
@@ -35,30 +33,25 @@ let main text_file comp_file =
 		match !mode with 
 		| 0 ->  
 			if (String.compare text_file "" <> 0) then
-				begin
-					let ic = open_in text_file in 
-					let res = compress ic in
-					if (res) then
-						print_string ("\nCompression succeeded!\n")
-					else print_string ("\nCompression failed!\n")
-				end
+				let res = compress text_file in
+				if (res) then
+					print_string ("\nCompression succeeded!\n")
+				else print_string ("\nCompression failed!\n")
 			else
-				print_string ("\nCannot find text file\n")
+				print_string ("\nNo input file\n")
 		| 1 -> 
 			if (String.compare comp_file "" <> 0) then
-				begin
+				try 
 					if (check_extension comp_file) then 
-						begin
-							let ic = open_in comp_file in 
-							let res = uncompress ic in
-							if (res) then
-								print_string ("\nUncompression succeeded!\n")
-							else print_string ("\nUncompression failed!\n")
-						end
+						let res = uncompress comp_file in
+						if (res) then
+							print_string ("\nUncompression succeeded!\n")
+						else print_string ("\nUncompression failed!\n")
 					else print_string ("\nFile invalid!\n")
-				end
+				with Invalid_file_ext ->
+					print_string ("\nFile invalid!\n")
 			else
-				print_string ("\nCannot find compressed file\n")
+				print_string ("\nNo input file\n")
 		| _ -> print_string (usage_msg)
 			
 	end;
@@ -73,7 +66,7 @@ let _ = let speclist = [
 							Arg.String (fun s -> mode := 1; comp_file := s),
 							": Decompression");
 						("-debug",
-							Arg.Unit (fun () -> debug := true),
+							Arg.Unit (fun () -> set_debug true),
 							": The debug mode");
 						("-version", 
 							Arg.Unit (fun () -> print_copyright(); exit 0),
