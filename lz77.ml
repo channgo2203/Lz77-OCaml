@@ -70,20 +70,37 @@ let compress filename =
 			begin
 				(* found the longest match *)
 				if (get_debug ()) then print_endline ("longest match: " ^ !current_match);
-				current_match := !current_match ^ (String.make 1 next_char); 
-				match_index := -1;
-				while ((String.length !current_match) > 1 && !match_index = -1) do
+				let codedstr = "~" ^ (string_of_int !match_index) ^ "~" ^ (string_of_int (String.length !current_match)) ^ "~" ^ (String.make 1 next_char) in
+				let concat = !current_match ^ (String.make 1 next_char) in 
+				if ((String.length codedstr) <= (String.length concat)) then 
 				begin
-				Buffer.add_char search_buffer (String.get !current_match 0);
-				current_match := String.sub !current_match 1 (String.length !current_match - 1);
-				try
-					let r1 = Str.regexp (!current_match) in 
-					let tmp_index1 = Str.search_forward r1 (Buffer.contents search_buffer) 0 in
-					match_index := tmp_index1
-				with Not_found ->
-					match_index := -1	
+					(* output codedstr *)
+					output_string oc codedstr;
+					(* append concat to search buffer *)
+					Buffer.add_string search_buffer concat;
+					(* reset current_match and match_index *)
+					current_match := "";
+					match_index := 0
 				end
-				done
+				else 
+				begin
+					(* otherwise, output chars one at a time *)
+					current_match := !current_match ^ (String.make 1 next_char); 
+					match_index := -1;
+					while ((String.length !current_match) > 1 && !match_index = -1) do
+					begin
+					output_char oc (String.get !current_match 0);
+					Buffer.add_char search_buffer (String.get !current_match 0);
+					current_match := String.sub !current_match 1 (String.length !current_match - 1);
+					try
+						let r1 = Str.regexp (!current_match) in 
+						let tmp_index1 = Str.search_forward r1 (Buffer.contents search_buffer) 0 in
+						match_index := tmp_index1
+					with Not_found ->
+						match_index := -1	
+					end
+					done
+				end
 			end;
 			(* trim the search buffer *)
 			if (Buffer.length search_buffer > default_buff_size) then let trim_buffer = trim_search_buffer search_buffer in Buffer.clear search_buffer; Buffer.add_buffer search_buffer trim_buffer
@@ -92,11 +109,20 @@ let compress filename =
 	with 
 		| Stream.Failure ->
 			begin
-			(* flush any thing *)
+			(* flush any thing in current_match *)
+			if (!match_index <> -1) then 
+				begin
+				let codedstr = "~" ^ (string_of_int !match_index) ^ "~" ^ (string_of_int (String.length !current_match)) in 
+				if ((String.length codedstr) <= (String.length !current_match)) then 
+					output_string oc codedstr
+				else output_string oc (!current_match)
+				end;
+			(* close any I/O channel *)
 			close_in ic; close_out oc; true
 			end
 		| _ -> 
 			begin
+			(* close any I/O channel *)
 			close_in ic; close_out oc; false
 			end
 	
