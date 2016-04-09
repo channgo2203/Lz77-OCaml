@@ -69,7 +69,7 @@ let compress filename =
 			(* get the next char from text file *)
 			let next_char = Stream.next chars in 
 			try 
-				let r = Str.regexp (!current_match ^ (String.make 1 next_char)) in 
+				let r = Str.regexp_string (!current_match ^ (String.make 1 next_char)) in 
 				(* look in our search buffer for a match *)
 				let tmp_index = Str.search_forward r (Buffer.contents search_buffer) 0 in 
 				(* if match then append next_char to current_match and update match index *)
@@ -104,7 +104,7 @@ let compress filename =
 								Buffer.add_char search_buffer (String.get !current_match 0);
 								current_match := String.sub !current_match 1 (String.length !current_match - 1);
 								try
-									let r1 = Str.regexp (!current_match) in 
+									let r1 = Str.regexp_string (!current_match) in 
 									let tmp_index1 = Str.search_forward r1 (Buffer.contents search_buffer) 0 in
 									match_index := tmp_index1
 								with Not_found ->
@@ -124,10 +124,10 @@ let compress filename =
 			(* flush any thing in current_match *)
 			if (!match_index <> -1) then 
 				begin
-				let codedstr = "~" ^ (string_of_int !match_index) ^ "~" ^ (string_of_int (String.length !current_match)) in 
-				if ((String.length codedstr) <= (String.length !current_match)) then 
-					output_string oc codedstr
-				else output_string oc (!current_match)
+					let codedstr = "~" ^ (string_of_int !match_index) ^ "~" ^ (string_of_int (String.length !current_match)) in 
+					if ((String.length codedstr) <= (String.length !current_match)) then 
+						output_string oc codedstr
+					else output_string oc (!current_match)
 				end;
 			(* close any I/O channel *)
 			close_in ic; flush oc; close_out oc; true
