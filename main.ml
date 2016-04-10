@@ -41,15 +41,10 @@ let main text_file comp_file =
 				print_string ("\nNo input file\n")
 		| 1 -> 
 			if (String.compare comp_file "" <> 0) then
-				try 
-					if (check_extension comp_file) then 
-						let res = uncompress comp_file in
-						if (res) then
-							print_string ("\nUncompression succeeded!\n")
-						else print_string ("\nUncompression failed!\n")
-					else print_string ("\nFile invalid!\n")
-				with Invalid_file_ext ->
-					print_string ("\nFile invalid!\n")
+				let res = uncompress comp_file in
+				if (res) then
+					print_string ("\nUncompression succeeded!\n")
+				else print_string ("\nUncompression failed!\n")
 			else
 				print_string ("\nNo input file\n")
 		| _ -> print_string (usage_msg)
