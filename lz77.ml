@@ -45,7 +45,23 @@ let trim_search_buffer b =
 	let _ = Buffer.blit b ((Buffer.length b) - default_buff_size) 
 		trim_bytes 0 default_buff_size in
 		Buffer.add_bytes trim_b trim_bytes; trim_b
-	 
+
+(* get offset from coded string *)
+let get_offset codedstr = 
+	let r = Str.regexp "~" in
+	let int_list = Str.split r codedstr in
+	match int_list with
+	| [] -> -1
+	| h::t -> int_of_string h
+	
+(* get length from coded string *)
+let rec get_len codedstr = 
+	let r = Str.regexp "~" in
+	let int_list = Str.split r codedstr in
+	try 
+		int_of_string (List.nth int_list 1)
+	with Failure e -> -1 
+
 (* compress function 
  * 0: succeeded
  * 1: failed
@@ -95,24 +111,24 @@ let compress filename =
 							current_match := "";
 							match_index := 0
 					end else 
-						begin
-							(* otherwise, output chars one at a time *)
-							current_match := !current_match ^ (String.make 1 next_char); 
-							match_index := -1;
-							while ((String.length !current_match) > 1 && !match_index = -1) do
-								begin
-									output_char oc (String.get !current_match 0);
-									Buffer.add_char search_buffer (String.get !current_match 0);
-									current_match := String.sub !current_match 1 (String.length !current_match - 1);
-									try
-										let r1 = Str.regexp_string (!current_match) in 
-										let tmp_index1 = Str.search_forward r1 (Buffer.contents search_buffer) 0 in
-										match_index := tmp_index1
-									with Not_found ->
-										match_index := -1	
-								end
-							done
-						end;
+					begin
+						(* otherwise, output chars one at a time *)
+						current_match := !current_match ^ (String.make 1 next_char); 
+						match_index := -1;
+						while ((String.length !current_match) > 1 && !match_index = -1) do
+							begin
+								output_char oc (String.get !current_match 0);
+								Buffer.add_char search_buffer (String.get !current_match 0);
+								current_match := String.sub !current_match 1 (String.length !current_match - 1);
+								try
+									let r1 = Str.regexp_string (!current_match) in 
+									let tmp_index1 = Str.search_forward r1 (Buffer.contents search_buffer) 0 in
+									match_index := tmp_index1
+								with Not_found ->
+									match_index := -1	
+							end
+						done
+					end;
 					
 				(* trim the search buffer *)
 				if (Buffer.length search_buffer > default_buff_size) then 
@@ -121,12 +137,11 @@ let compress filename =
 					Buffer.add_buffer search_buffer trim_buffer
 			done; 
 			true
-		with 
-			| Stream.Failure ->
+		with Stream.Failure ->
 				(* flush any thing in current_match *)
 				if (!match_index <> -1) then 
 					begin
-						let codedstr = "~" ^ (string_of_int !match_index) ^ "~" ^ (string_of_int (String.length !current_match)) in 
+						let codedstr = "~" ^ (string_of_int !match_index) ^ "~" ^ (string_of_int (String.length !current_match)) ^ "~" in 
 						if ((String.length codedstr) <= (String.length !current_match)) then 
 							output_string oc codedstr
 						else output_string oc (!current_match)
@@ -134,9 +149,14 @@ let compress filename =
 				(* close any I/O channel *)
 				close_in ic; flush oc; close_out oc; 
 				true
-	with Sys_error e -> 
+	with 
+	| Sys_error e -> 
 		(* file invalid *)
 		print_endline e; 
+		false
+	| _ ->
+		(* file invalid *)
+		print_endline ("Unknown errors!");
 		false
 	
 (* uncompress function 
@@ -148,13 +168,65 @@ let uncompress filename =
 	let _ = if (get_debug ()) then print_endline ("Compressed file: " ^ filename) in
 	try 
 		let ic = open_in filename in
+		let chars = char_stream ic in
 		try 
 			let uncomfilename = uncompress_filename filename in
 			(* debug *)
 			let _ = if (get_debug ()) then print_endline ("Uncompressed file: " ^ uncomfilename) in
 			(* uncompressed file *)
 			let oc = open_out uncomfilename in  
-			true
+			let search_buffer = Buffer.create default_buff_size in 
+			try 
+				while true do
+					(* get the next char from text file *)
+					let next_char = Stream.next chars in 
+					Buffer.add_char search_buffer next_char;
+					try 
+						let r = Str.regexp "~[0-9]+~[0-9]+~" in 
+						(* look in our search buffer for a match *)
+						let tmp_index = Str.search_forward r (Buffer.contents search_buffer) 0 in 
+						let codedstr = Str.matched_string (Buffer.contents search_buffer) in 
+						(* get the offset *)
+						let offset = get_offset codedstr in 
+						if (get_debug ()) then printf "offset: %d\n" offset;
+						let len = get_len codedstr in 
+						if (get_debug ()) then printf "len: %d\n" len;
+						(* get the text from search buffer w.r.t coddedstr *)
+						let textstr = Buffer.sub search_buffer offset len in 
+						if (get_debug ()) then print_endline 
+							("Uncompressed text: " ^ textstr);
+						(* replace codedstr with textstr in search buffer *)
+						let textbuffer_str = Str.replace_first r textstr (Buffer.contents search_buffer) in 
+						Buffer.clear search_buffer; 
+						Buffer.add_string search_buffer textbuffer_str;
+						(* trim search buffer *)
+						if (Buffer.length search_buffer > default_buff_size) then 
+							begin
+								(* write to oc the extra characters in search buffer from index 0 *)
+								output_string oc (Buffer.sub search_buffer 0 (Buffer.length search_buffer - default_buff_size));
+								let trim_buffer = trim_search_buffer search_buffer in 
+								Buffer.clear search_buffer; 
+								Buffer.add_buffer search_buffer trim_buffer
+							end
+					with Not_found ->
+						(* if search buffer longer than buffer size *)
+						if (Buffer.length search_buffer > default_buff_size) then 
+							begin 
+								(* normal text, write to oc the extra characters in search buffer from index 0 *)
+								output_string oc (Buffer.sub search_buffer 0 (Buffer.length search_buffer - default_buff_size));
+								let trim_buffer = trim_search_buffer search_buffer in 
+								Buffer.clear search_buffer; 
+								Buffer.add_buffer search_buffer trim_buffer
+							end
+				done;
+				
+				true
+			with Stream.Failure ->
+				(* flush any thing in search buffer to oc *)
+				Buffer.output_buffer oc search_buffer;
+				(* close any I/O channel *)
+				close_in ic; flush oc; close_out oc; 
+				true
 		with 
 			| Invalid_file_ext ->
 				(* invalid compressed file extension *)
@@ -168,9 +240,13 @@ let uncompress filename =
 				(* close open channel *)
 				close_in ic;
 				false
-	with Sys_error e -> 
-			(* file invalid *)
-			print_endline e; 
-			false
-		
-	
+	with 
+	| Sys_error e -> 
+		(* file invalid *)
+		print_endline e; 
+		false
+	(*
+	| _ ->
+		print_endline ("Unknown errors!");
+		false	
+	*)

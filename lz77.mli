@@ -19,6 +19,12 @@ val compress_filename : string -> string
 (* trim the search buffer *)
 val trim_search_buffer : Buffer.t -> Buffer.t
 
+(* get offset from coded string *)
+val get_offset : string -> int
+
+(* get length from coded string *)
+val get_len : string -> int 
+
 (* compress function 
  * 0: succeeded
  * 1: failed
